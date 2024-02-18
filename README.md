@@ -594,3 +594,16 @@ NOTE: You'd have to create a hosted zone from the AWS management console first b
         evaluate_target_health = true
     }
     }
+
+You can run `terraform plan` and terraform apply`
+![](./images/tf-apply-4.png)
+
+![](./images/tf-apply-5.png)
+
+![](./images/tf-apply-6.png)
+
+You can also check the created resources on the AWS console.
+
+![](./images/issued.png)
+
+![](./images/sgs.png)
