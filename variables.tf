@@ -38,7 +38,7 @@ variable "preferred_number_of_private_subnets" {
 
 variable "name" {
   type    = string
-  default = "savvytech"
+  default = "savvytek"
 
 }
 
@@ -48,6 +48,11 @@ variable "tags" {
   default     = {}
 }
 
+variable "environment" {
+  type = string
+  description = "Environment"
+  
+}
 
 # variable "ami" {
 #   type        = string
