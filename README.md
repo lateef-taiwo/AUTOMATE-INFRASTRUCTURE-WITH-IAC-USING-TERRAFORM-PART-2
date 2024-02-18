@@ -47,3 +47,8 @@ NOTE: Update the variables.tf to declare the variable tags used in the format ab
 
 Anytime we need to make a change to the tags, we simply do that in one single place (terraform.tfvars). But, our key-value pairs are hard coded. So, go ahead and work out a fix for that. Simply create variables for each value and use var.variable_name as the value to each of the keys.
 
+### Internet Gateways & format() function
+
+* Create an Internet Gateway in a separate Terraform file internet_gateway.tf
+
+
