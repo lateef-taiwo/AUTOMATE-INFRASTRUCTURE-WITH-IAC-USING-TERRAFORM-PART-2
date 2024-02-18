@@ -266,7 +266,7 @@ In above code we are creating AssumeRole with AssumeRole policy. It is granting 
 
 Create a file and name it security_groups.tf, copy and paste the code below
 
-    # security group for alb, to allow acess from any where for HTTP and HTTPS traffic
+    # security group for alb, to allow access from any where for HTTP and HTTPS traffic
     resource "aws_security_group" "ext-alb-sg" {
     name        = "ext-alb-sg"
     vpc_id      = aws_vpc.main.id
@@ -518,7 +518,7 @@ Create a file and name it security_groups.tf, copy and paste the code below
     security_group_id        = aws_security_group.datalayer-sg.id
     }
 
-IMPORTANT NOTE: We used the aws_security_group_rule to refrence another security group in a security group.
+IMPORTANT NOTE: We used the aws_security_group_rule to reference another security group in a security group.
 
 ### Certificate From Amazon Certificate Manager
 
@@ -532,6 +532,7 @@ The entire section create a certificate, public zone, and validate the certifica
 
 NOTE: You'd have to create a hosted zone from the AWS management console first before making reference to the created hosted zone in the code below;
 
+![](./images/savvytek-online.png)
     resource "aws_acm_certificate" "savvytek" {
     domain_name       = "*.savvytek.online"
     validation_method = "DNS"
