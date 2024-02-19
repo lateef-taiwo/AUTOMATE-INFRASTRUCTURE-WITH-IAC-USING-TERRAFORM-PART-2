@@ -87,7 +87,7 @@ resource "aws_autoscaling_group" "bastion-asg" {
   }
   tag {
     key                 = "Name"
-    value               = "ACS-bastion"
+    value               = "savvytek-bastion"
     propagate_at_launch = true
   }
 
@@ -152,7 +152,7 @@ resource "aws_autoscaling_group" "nginx-asg" {
 
   tag {
     key                 = "Name"
-    value               = "ACS-nginx"
+    value               = "savvytek-nginx"
     propagate_at_launch = true
   }
 
@@ -162,5 +162,5 @@ resource "aws_autoscaling_group" "nginx-asg" {
 # attaching autoscaling group of nginx to external load balancer
 resource "aws_autoscaling_attachment" "asg_attachment_nginx" {
   autoscaling_group_name = aws_autoscaling_group.nginx-asg.id
-  alb_target_group_arn   = aws_lb_target_group.nginx-tgt.arn
+  lb_target_group_arn   = aws_lb_target_group.nginx-tgt.arn
 }
