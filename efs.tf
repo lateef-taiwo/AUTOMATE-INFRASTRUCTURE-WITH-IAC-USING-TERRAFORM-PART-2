@@ -9,7 +9,7 @@ resource "aws_kms_key" "savvytek-kms" {
     {
       "Sid": "Enable IAM User Permissions",
       "Effect": "Allow",
-      "Principal": { "AWS": "arn:aws:iam::${var.account_no}:user/Abdul" },
+      "Principal": { "AWS": "arn:aws:iam::005654795190:user/Abdul" },
       "Action": "kms:*",
       "Resource": "*"
     }

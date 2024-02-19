@@ -1274,3 +1274,106 @@ Let us create EFS and it mount targets- add the following code to efs.tf
 
     }
     }
+
+### MySQL RDS
+
+Create the RDS itself using this snippet of code in rds.tf file:
+
+    # This section will create the subnet group for the RDS  instance using the private subnet
+    resource "aws_db_subnet_group" "wakabetter-rds" {
+    name       = "acs-rds"
+    subnet_ids = [aws_subnet.private[2].id, aws_subnet.private[3].id]
+
+
+    tags = merge(
+        var.tags,
+        {
+        Name = "wakabetter-rds"
+        },
+    )
+    }
+
+
+    # create the RDS instance with the subnets group
+    resource "aws_db_instance" "wakabetter-rds" {
+    allocated_storage      = 20
+    storage_type           = "gp2"
+    engine                 = "mysql"
+    engine_version         = "5.7"
+    instance_class         = "db.t2.micro"
+    name                   = "wakabetterdb"
+    username               = var.master-username
+    password               = var.master-password
+    parameter_group_name   = "default.mysql5.7"
+    db_subnet_group_name   = aws_db_subnet_group.ACS-rds.name
+    skip_final_snapshot    = true
+    vpc_security_group_ids = [aws_security_group.datalayer-sg.id]
+    multi_az               = "true"
+    }
+
+Declare the variables in our resources that has not been declared in the variables.tf file.
+
+    variable "ami" {
+    type        = string
+    description = "AMI ID for the launch template"
+    }
+
+
+    variable "keypair" {
+    type        = string
+    description = "key pair for the instances"
+    }
+
+
+    variable "account_no" {
+    type        = number
+    description = "the account number"
+    }
+
+
+    variable "master-username" {
+    type        = string
+    description = "RDS admin username"
+    }
+
+
+    variable "master-password" {
+    type        = string
+    description = "RDS master password"
+    }
+
+* Run a terraform init -upgrade terraform plan terraform apply
+
+![](./images/plan.png)
+
+![](./images/apply.png)
+
+![](./images/vpc.png)
+
+![](./images/subnets.png)
+
+![](./images/tgs.png)
+
+![](./images/lts.png)
+
+![](./images/albs.png)
+
+![](./images/asgs.png)
+
+![](./images/efs.png)
+
+![](./images/access-points.png)
+
+![](./images/db.png)
+
+* Don't forget to terraform destroy the resources to avoid cost.  `tf destroy -auto-approve`
+
+![](./images/destroy-1.png)
+
+![](./images/destroy-2.png)
+
+![](./images/destroy-3.png)
+
+![](./images/destroy-4.png)
+
+![](./images/destroy-complete.png)
