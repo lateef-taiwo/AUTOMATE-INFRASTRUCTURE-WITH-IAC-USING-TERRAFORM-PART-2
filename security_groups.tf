@@ -27,7 +27,7 @@ resource "aws_security_group" "ext-alb-sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
- tags = merge(
+  tags = merge(
     var.tags,
     {
       Name = "ext-alb-sg"
@@ -40,7 +40,7 @@ resource "aws_security_group" "ext-alb-sg" {
 # security group for bastion, to allow access into the bastion host from you IP
 resource "aws_security_group" "bastion_sg" {
   name        = "bastion_sg"
-  vpc_id = aws_vpc.main.id
+  vpc_id      = aws_vpc.main.id
   description = "Allow incoming HTTP connections."
 
   ingress {
@@ -58,7 +58,7 @@ resource "aws_security_group" "bastion_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-   tags = merge(
+  tags = merge(
     var.tags,
     {
       Name = "Bastion-SG"
@@ -80,7 +80,7 @@ resource "aws_security_group" "nginx-sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-   tags = merge(
+  tags = merge(
     var.tags,
     {
       Name = "nginx-SG"
@@ -147,7 +147,7 @@ resource "aws_security_group_rule" "inbound-ialb-https" {
   security_group_id        = aws_security_group.int-alb-sg.id
 }
 
- 
+
 # security group for webservers, to have access only from the internal load balancer and bastion instance
 resource "aws_security_group" "webserver-sg" {
   name   = "my-asg-sg"
@@ -200,7 +200,7 @@ resource "aws_security_group" "datalayer-sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
- tags = merge(
+  tags = merge(
     var.tags,
     {
       Name = "datalayer-sg"

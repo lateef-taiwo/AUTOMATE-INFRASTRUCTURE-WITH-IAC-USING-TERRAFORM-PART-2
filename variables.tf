@@ -1,10 +1,10 @@
 variable "region" {
-  type = string
+  type        = string
   description = "The region to deploy resources"
 }
 
 variable "vpc_cidr" {
-  type = string
+  type        = string
   description = "The VPC cidr"
 }
 
@@ -49,9 +49,9 @@ variable "tags" {
 }
 
 variable "environment" {
-  type = string
+  type        = string
   description = "Environment"
-  
+
 }
 
 variable "ami" {
@@ -65,18 +65,18 @@ variable "keypair" {
   description = "key pair for the instances"
 }
 
-# variable "account_no" {
-#   type        = number
-#   description = "the account number"
-# }
+variable "account_no" {
+  type        = number
+  description = "the account number"
+}
 
 
-# variable "master-username" {
-#   type        = string
-#   description = "RDS admin username"
-# }
+variable "master-username" {
+  type        = string
+  description = "RDS admin username"
+}
 
-# variable "master-password" {
-#   type        = string
-#   description = "RDS master password"
-# }
+variable "master-password" {
+  type        = string
+  description = "RDS master password"
+}
