@@ -466,7 +466,7 @@ Create a file and name it security_groups.tf, copy and paste the code below
     }
 
 
-    # security group for datalayer to alow traffic from websever on nfs and mysql port and bastiopn host on mysql port
+    # security group for datalayer to alow traffic from websever on nfs and mysql port and bastion host on mysql port
     resource "aws_security_group" "datalayer-sg" {
     name   = "datalayer-sg"
     vpc_id = aws_vpc.main.id
@@ -607,3 +607,569 @@ You can also check the created resources on the AWS console.
 ![](./images/issued.png)
 
 ![](./images/sgs.png)
+
+![](./images/albs.png)
+
+![](./images/tgs.png)
+
+### External (Internet facing) Application Load Balancer (ALB)
+
+* Create a file called alb.tf -Create the ALB, then we create the target group and lastly we will create the listener rule. Useful Terraform Documentation, go through this documentation and understand the argument needed for each resources: ALB, ALB-target and ALB-listener. The ALB will balance the traffic between the Instances:
+
+        resource "aws_lb" "ext-alb" {
+        name     = "ext-alb"
+        internal = false
+        security_groups = [
+            aws_security_group.ext-alb-sg.id,
+        ]
+
+
+        subnets = [
+            aws_subnet.public[0].id,
+            aws_subnet.public[1].id
+        ]
+
+
+        tags = merge(
+            var.tags,
+            {
+            Name = "savvytek-ext-alb"
+            },
+        )
+
+
+        ip_address_type    = "ipv4"
+        load_balancer_type = "application"
+        }
+
+
+* Inform our ALB to where route the traffic. So, create a Target Group to point to its targets:
+
+        resource "aws_lb_target_group" "nginx-tgt" {
+        health_check {
+            interval            = 10
+            path                = "/healthstatus"
+            protocol            = "HTTPS"
+            timeout             = 5
+            healthy_threshold   = 5
+            unhealthy_threshold = 2
+        }
+        name        = "nginx-tgt"
+        port        = 443
+        protocol    = "HTTPS"
+        target_type = "instance"
+        vpc_id      = aws_vpc.main.id
+        }
+
+* Create a Listener for this target Group
+
+        resource "aws_lb_listener" "nginx-listner" {
+        load_balancer_arn = aws_lb.ext-alb.arn
+        port              = 443
+        protocol          = "HTTPS"
+        certificate_arn   = aws_acm_certificate_validation.savvytek.certificate_arn
+
+
+        default_action {
+            type             = "forward"
+            target_group_arn = aws_lb_target_group.nginx-tgt.arn
+        }
+        }
+
+
+* Add the following outputs to output.tf to print them on screen.
+
+        output "alb_dns_name" {
+        value = aws_lb.ext-alb.dns_name
+        }
+
+        output "alb_target_group_arn" {
+        value = aws_lb_target_group.nginx-tgt.arn
+        }
+
+### Internal (Internal) Application Load Balancer (ALB)
+
+For the Internal Load balancer, follow the same concepts with the external load balancer.
+
+Add the code snippets inside the alb.tf file.
+
+    # ----------------------------
+    #Internal Load Balancers for webservers
+    #---------------------------------
+
+
+    resource "aws_lb" "ialb" {
+    name     = "ialb"
+    internal = true
+    security_groups = [
+        aws_security_group.int-alb-sg.id,
+    ]
+
+
+    subnets = [
+        aws_subnet.private[0].id,
+        aws_subnet.private[1].id
+    ]
+
+
+    tags = merge(
+        var.tags,
+        {
+        Name = "savvytek-int-alb"
+        },
+    )
+
+
+    ip_address_type    = "ipv4"
+    load_balancer_type = "application"
+    }
+
+* To inform our ALB to where route the traffic we need to create a Target Group to point to its targets:
+
+        # --- target group  for wordpress -------
+
+        resource "aws_lb_target_group" "wordpress-tgt" {
+        health_check {
+            interval            = 10
+            path                = "/healthstatus"
+            protocol            = "HTTPS"
+            timeout             = 5
+            healthy_threshold   = 5
+            unhealthy_threshold = 2
+        }
+
+
+        name        = "wordpress-tgt"
+        port        = 443
+        protocol    = "HTTPS"
+        target_type = "instance"
+        vpc_id      = aws_vpc.main.id
+        }
+
+
+        # --- target group for tooling -------
+
+
+        resource "aws_lb_target_group" "tooling-tgt" {
+        health_check {
+            interval            = 10
+            path                = "/healthstatus"
+            protocol            = "HTTPS"
+            timeout             = 5
+            healthy_threshold   = 5
+            unhealthy_threshold = 2
+        }
+
+
+        name        = "tooling-tgt"
+        port        = 443
+        protocol    = "HTTPS"
+        target_type = "instance"
+        vpc_id      = aws_vpc.main.id
+        }
+
+* Create a Listener for this target Group
+
+ For this aspect a single listener was created for the wordpress which is default, A rule was created to route traffic to tooling when the host header changes
+
+
+        resource "aws_lb_listener" "web-listener" {
+        load_balancer_arn = aws_lb.ialb.arn
+        port              = 443
+        protocol          = "HTTPS"
+        certificate_arn   = aws_acm_certificate_validation.savvytek.certificate_arn
+
+
+        default_action {
+            type             = "forward"
+            target_group_arn = aws_lb_target_group.wordpress-tgt.arn
+        }
+        }
+
+
+        # listener rule for tooling target
+
+
+        resource "aws_lb_listener_rule" "tooling-listener" {
+        listener_arn = aws_lb_listener.web-listener.arn
+        priority     = 99
+
+
+        action {
+            type             = "forward"
+            target_group_arn = aws_lb_target_group.tooling-tgt.arn
+        }
+
+
+        condition {
+            host_header {
+            values = ["tooling.savvytek.online"]
+            }
+        }
+        }
+
+### Auto Scaling Group (ASG)
+
+We need to configure our ASG to be able to scale the EC2s out and in depending on the application traffic. Before we start configuring an ASG, we need to create the launch template and the the AMI needed. For now we are going to use a random AMI from AWS, then in project 19, we will use Packer to create our ami. Based on our Architecture we need Auto Scaling Groups for bastion, nginx, wordpress and tooling, so we will create two files; asg-bastion-nginx.tf will contain Launch Template and Autoscaling group for Bastion and Nginx, then asg-wordpress-tooling.tf will contain Launch Template and Autoscaling group for wordpress and tooling.
+
+1. Create asg-bastion-nginx.tf and paste all the code snippet below;
+
+        #### creating sns topic for all the auto scaling groups
+        resource "aws_sns_topic" "david-sns" {
+        name = "Default_CloudWatch_Alarms_Topic"
+        }
+        creating notification for all the auto scaling groups
+        resource "aws_autoscaling_notification" "david_notifications" {
+        group_names = [
+            aws_autoscaling_group.bastion-asg.name,
+            aws_autoscaling_group.nginx-asg.name,
+            aws_autoscaling_group.wordpress-asg.name,
+            aws_autoscaling_group.tooling-asg.name,
+        ]
+        notifications = [
+            "autoscaling:EC2_INSTANCE_LAUNCH",
+            "autoscaling:EC2_INSTANCE_TERMINATE",
+            "autoscaling:EC2_INSTANCE_LAUNCH_ERROR",
+            "autoscaling:EC2_INSTANCE_TERMINATE_ERROR",
+        ]
+
+
+        topic_arn = aws_sns_topic.david-sns.arn
+        }
+        launch template for bastion
+        resource "random_shuffle" "az_list" {
+        input        = data.aws_availability_zones.available.names
+        }
+
+
+        resource "aws_launch_template" "bastion-launch-template" {
+        image_id               = var.ami
+        instance_type          = "t2.micro"
+        vpc_security_group_ids = [aws_security_group.bastion_sg.id]
+
+
+        iam_instance_profile {
+            name = aws_iam_instance_profile.ip.id
+        }
+
+
+        key_name = var.keypair
+
+
+        placement {
+            availability_zone = "random_shuffle.az_list.result"
+        }
+
+
+        lifecycle {
+            create_before_destroy = true
+        }
+
+
+        tag_specifications {
+            resource_type = "instance"
+
+
+        tags = merge(
+            var.tags,
+            {
+            Name = "bastion-launch-template"
+            },
+        )
+        }
+
+
+        user_data = filebase64("${path.module}/bastion.sh")
+        }
+
+
+        # ---- Autoscaling for bastion  hosts
+
+
+        resource "aws_autoscaling_group" "bastion-asg" {
+        name                      = "bastion-asg"
+        max_size                  = 2
+        min_size                  = 1
+        health_check_grace_period = 300
+        health_check_type         = "ELB"
+        desired_capacity          = 1
+
+
+        vpc_zone_identifier = [
+            aws_subnet.public[0].id,
+            aws_subnet.public[1].id
+        ]
+
+
+        launch_template {
+            id      = aws_launch_template.bastion-launch-template.id
+            version = "$Latest"
+        }
+        tag {
+            key                 = "Name"
+            value               = "bastion-launch-template"
+            propagate_at_launch = true
+        }
+
+
+        }
+
+
+        # launch template for nginx
+
+
+        resource "aws_launch_template" "nginx-launch-template" {
+        image_id               = var.ami
+        instance_type          = "t2.micro"
+        vpc_security_group_ids = [aws_security_group.nginx-sg.id]
+
+
+        iam_instance_profile {
+            name = aws_iam_instance_profile.ip.id
+        }
+
+
+        key_name =  var.keypair
+
+
+        placement {
+            availability_zone = "random_shuffle.az_list.result"
+        }
+
+
+        lifecycle {
+            create_before_destroy = true
+        }
+
+
+        tag_specifications {
+            resource_type = "instance"
+
+
+            tags = merge(
+            var.tags,
+            {
+            Name = "nginx-launch-template"
+            },
+        )
+        }
+
+
+        user_data = filebase64("${path.module}/nginx.sh")
+        }
+
+
+        # ------ Autoscaling group for reverse proxy nginx ---------
+
+
+        resource "aws_autoscaling_group" "nginx-asg" {
+        name                      = "nginx-asg"
+        max_size                  = 2
+        min_size                  = 1
+        health_check_grace_period = 300
+        health_check_type         = "ELB"
+        desired_capacity          = 1
+
+
+        vpc_zone_identifier = [
+            aws_subnet.public[0].id,
+            aws_subnet.public[1].id
+        ]
+
+
+        launch_template {
+            id      = aws_launch_template.nginx-launch-template.id
+            version = "$Latest"
+        }
+
+
+        tag {
+            key                 = "Name"
+            value               = "nginx-launch-template"
+            propagate_at_launch = true
+        }
+
+
+        }
+
+
+        # attaching autoscaling group of nginx to external load balancer
+        resource "aws_autoscaling_attachment" "asg_attachment_nginx" {
+        autoscaling_group_name = aws_autoscaling_group.nginx-asg.id
+        alb_target_group_arn   = aws_lb_target_group.nginx-tgt.arn
+        }
+
+2. Autoscaling for wordpress and tooling will be created in a separate file
+
+* Create asg-wordpress-tooling.tf and paste the following code
+
+        # launch template for wordpress
+
+
+        resource "aws_launch_template" "wordpress-launch-template" {
+        image_id               = var.ami
+        instance_type          = "t2.micro"
+        vpc_security_group_ids = [aws_security_group.webserver-sg.id]
+
+
+        iam_instance_profile {
+            name = aws_iam_instance_profile.ip.id
+        }
+
+
+        key_name = var.keypair
+
+
+        placement {
+            availability_zone = "random_shuffle.az_list.result"
+        }
+
+
+        lifecycle {
+            create_before_destroy = true
+        }
+
+
+        tag_specifications {
+            resource_type = "instance"
+
+
+            tags = merge(
+            var.tags,
+            {
+            Name = "wordpress-launch-template"
+            },
+        )
+
+
+        }
+
+
+        user_data = filebase64("${path.module}/wordpress.sh")
+        }
+
+
+        # ---- Autoscaling for wordpress application
+
+
+        resource "aws_autoscaling_group" "wordpress-asg" {
+        name                      = "wordpress-asg"
+        max_size                  = 2
+        min_size                  = 1
+        health_check_grace_period = 300
+        health_check_type         = "ELB"
+        desired_capacity          = 1
+        vpc_zone_identifier = [
+
+
+            aws_subnet.private[0].id,
+            aws_subnet.private[1].id
+        ]
+
+
+        launch_template {
+            id      = aws_launch_template.wordpress-launch-template.id
+            version = "$Latest"
+        }
+        tag {
+            key                 = "Name"
+            value               = "wordpress-asg"
+            propagate_at_launch = true
+        }
+        }
+
+
+        # attaching autoscaling group of  wordpress application to internal loadbalancer
+        resource "aws_autoscaling_attachment" "asg_attachment_wordpress" {
+        autoscaling_group_name = aws_autoscaling_group.wordpress-asg.id
+        alb_target_group_arn   = aws_lb_target_group.wordpress-tgt.arn
+        }
+
+
+        # launch template for toooling
+        resource "aws_launch_template" "tooling-launch-template" {
+        image_id               = var.ami
+        instance_type          = "t2.micro"
+        vpc_security_group_ids = [aws_security_group.webserver-sg.id]
+
+
+        iam_instance_profile {
+            name = aws_iam_instance_profile.ip.id
+        }
+
+
+        key_name = var.keypair
+
+
+        placement {
+            availability_zone = "random_shuffle.az_list.result"
+        }
+
+
+        lifecycle {
+            create_before_destroy = true
+        }
+
+
+        tag_specifications {
+            resource_type = "instance"
+
+
+        tags = merge(
+            var.tags,
+            {
+            Name = "tooling-launch-template"
+            },
+        )
+
+
+        }
+
+
+        user_data = filebase64("${path.module}/tooling.sh")
+        }
+
+
+        # ---- Autoscaling for tooling -----
+
+
+        resource "aws_autoscaling_group" "tooling-asg" {
+        name                      = "tooling-asg"
+        max_size                  = 2
+        min_size                  = 1
+        health_check_grace_period = 300
+        health_check_type         = "ELB"
+        desired_capacity          = 1
+
+
+        vpc_zone_identifier = [
+
+
+            aws_subnet.private[0].id,
+            aws_subnet.private[1].id
+        ]
+
+
+        launch_template {
+            id      = aws_launch_template.tooling-launch-template.id
+            version = "$Latest"
+        }
+
+
+        tag {
+            key                 = "Name"
+            value               = "tooling-launch-template"
+            propagate_at_launch = true
+        }
+        }
+        # attaching autoscaling group of  tooling application to internal loadbalancer
+        resource "aws_autoscaling_attachment" "asg_attachment_tooling" {
+        autoscaling_group_name = aws_autoscaling_group.tooling-asg.id
+        alb_target_group_arn   = aws_lb_target_group.tooling-tgt.arn
+        }
+
+### Elastic File System (EFS)
+
+In order to create an EFS you need to create a KMS key. AWS Key Management Service (KMS) makes it easy for you to create and manage cryptographic keys and control their use across a wide range of AWS services and in your applications.
+
+Add the following code to efs.tf

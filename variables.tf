@@ -54,16 +54,16 @@ variable "environment" {
   
 }
 
-# variable "ami" {
-#   type        = string
-#   description = "AMI ID for the launch template"
-# }
+variable "ami" {
+  type        = string
+  description = "AMI ID for the launch template"
+}
 
 
-# variable "keypair" {
-#   type        = string
-#   description = "key pair for the instances"
-# }
+variable "keypair" {
+  type        = string
+  description = "key pair for the instances"
+}
 
 # variable "account_no" {
 #   type        = number

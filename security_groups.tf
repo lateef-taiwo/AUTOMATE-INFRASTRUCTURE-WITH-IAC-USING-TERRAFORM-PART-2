@@ -138,7 +138,7 @@ resource "aws_security_group" "int-alb-sg" {
 # }
 
 
-resource "aws_security_group_rule" "inbound-alb-https" {
+resource "aws_security_group_rule" "inbound-ialb-https" {
   type                     = "ingress"
   from_port                = 443
   to_port                  = 443
