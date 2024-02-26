@@ -1377,3 +1377,11 @@ Declare the variables in our resources that has not been declared in the variabl
 ![](./images/destroy-4.png)
 
 ![](./images/destroy-complete.png)
+
+install graphviz
+
+sudo apt install graphviz
+use the command below to generate dependency graph
+
+    terraform graph -type=plan | dot -Tpng > graph.png
+    terraform graph | dot -Tpng > graph.png
